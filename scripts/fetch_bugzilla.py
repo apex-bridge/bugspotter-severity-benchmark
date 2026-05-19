@@ -74,7 +74,8 @@ def _get(url: str, *, max_retries: int = 5) -> dict:
     for attempt in range(max_retries):
         try:
             with urllib.request.urlopen(url, timeout=30) as r:
-                return json.loads(r.read())
+                body = r.read()
+            return json.loads(body)
         except urllib.error.HTTPError as e:
             if e.code in (429, 502, 503, 504) and attempt < max_retries - 1:
                 wait = 2**attempt
@@ -98,6 +99,20 @@ def _get(url: str, *, max_retries: int = 5) -> dict:
                 time.sleep(wait)
                 continue
             last_err = f"Network error contacting Bugzilla ({e.reason}) after {max_retries} retries."
+            break
+        except json.JSONDecodeError:
+            # Bugzilla occasionally returns a 200 OK with an HTML error body
+            # or an empty response. Retry like a 5xx.
+            if attempt < max_retries - 1:
+                wait = 2**attempt
+                print(
+                    f"  Non-JSON body on retry {attempt + 1}/{max_retries}, "
+                    f"sleeping {wait}s...",
+                    file=sys.stderr,
+                )
+                time.sleep(wait)
+                continue
+            last_err = f"Bugzilla returned non-JSON body for {url} after {max_retries} retries."
             break
     sys.exit(last_err)
 

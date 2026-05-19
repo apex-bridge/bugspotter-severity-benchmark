@@ -12,6 +12,9 @@ env/
 results/raw/
 *.swp
 
+# Runtime logs from background fetch / benchmark runs
+*.log
+
 # OS / editors
 .DS_Store
 .vscode/
