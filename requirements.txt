@@ -1,0 +1,15 @@
+# Data collection has zero deps (stdlib only) — see scripts/fetch_bugzilla.py.
+# Everything below is for the benchmark harness, curation, and analysis.
+
+# Inference clients
+ollama>=0.4.0
+openai>=1.50.0
+
+# Data + metrics
+pandas>=2.2.0
+scikit-learn>=1.5.0          # weighted-F1, precision/recall, confusion matrix
+tqdm>=4.66.0
+
+# Plots
+matplotlib>=3.9.0
+seaborn>=0.13.0
