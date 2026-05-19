@@ -1,2 +1,50 @@
 
 === critical \u2190 blocker (target 200) ===
+  blocker: collected 58 / 200
+
+=== critical \u2190 critical (target 200) ===
+  critical: collected 226 / 200
+
+=== high \u2190 major (target 400) ===
+  major: collected 36 / 400
+
+=== medium \u2190 normal (target 400) ===
+  normal: collected 500 / 400
+
+=== low \u2190 minor (target 200) ===
+  minor: collected 166 / 200
+
+=== low \u2190 trivial (target 200) ===
+  trivial: collected 1 / 200
+
+List phase complete — wrote 861 bugs to C:\apex\BugSpotter\bugspotter-severity-benchmark\dataset\raw.jsonl
+
+Fetching first comments for 861 bugs (0 already enriched)...
+  comments: 50 / 861 (checkpoint saved)
+  Bugzilla 502 on retry 1/5, sleeping 1s...
+  comments: 100 / 861 (checkpoint saved)
+  comments: 150 / 861 (checkpoint saved)
+  comments: 200 / 861 (checkpoint saved)
+  comments: 250 / 861 (checkpoint saved)
+Traceback (most recent call last):
+  File "C:\apex\BugSpotter\bugspotter-severity-benchmark\scripts\fetch_bugzilla.py", line 250, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "C:\apex\BugSpotter\bugspotter-severity-benchmark\scripts\fetch_bugzilla.py", line 229, in main
+    bug["description"] = fetch_first_comment(bug["id"])
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\apex\BugSpotter\bugspotter-severity-benchmark\scripts\fetch_bugzilla.py", line 154, in fetch_first_comment
+    data = _get(url)
+           ^^^^^^^^^
+  File "C:\apex\BugSpotter\bugspotter-severity-benchmark\scripts\fetch_bugzilla.py", line 77, in _get
+    return json.loads(r.read())
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\balex\AppData\Local\Programs\Python\Python312\Lib\json\__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\balex\AppData\Local\Programs\Python\Python312\Lib\json\decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\balex\AppData\Local\Programs\Python\Python312\Lib\json\decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
