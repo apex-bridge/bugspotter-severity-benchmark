@@ -4,6 +4,7 @@
 # Inference clients
 ollama>=0.4.0
 openai>=1.50.0
+anthropic>=0.40.0
 
 # Data + metrics
 pandas>=2.2.0

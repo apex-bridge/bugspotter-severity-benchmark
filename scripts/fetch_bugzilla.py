@@ -63,15 +63,43 @@ PAGE_LIMIT = 500  # max per Bugzilla REST page
 REQUEST_SLEEP_SEC = 0.5  # be polite to the public API
 
 
-def _get(url: str) -> dict:
-    """GET + JSON decode with a friendly error path on rate-limits / 5xx."""
-    try:
-        with urllib.request.urlopen(url, timeout=30) as r:
-            return json.loads(r.read())
-    except urllib.error.HTTPError as e:
-        sys.exit(f"Bugzilla {e.code} on {url} — body: {e.read()[:500].decode(errors='replace')}")
-    except urllib.error.URLError as e:
-        sys.exit(f"Network error contacting Bugzilla ({e.reason}). Retry.")
+def _get(url: str, *, max_retries: int = 5) -> dict:
+    """GET + JSON decode with retries on 502/503/504/network errors.
+
+    Mozilla Bugzilla's nginx front returns transient 502s under load. We back
+    off exponentially (1s, 2s, 4s, 8s, 16s) and only abort if every retry
+    fails — so a single bad minute doesn't kill a 30-minute run.
+    """
+    last_err: str = ""
+    for attempt in range(max_retries):
+        try:
+            with urllib.request.urlopen(url, timeout=30) as r:
+                return json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            if e.code in (429, 502, 503, 504) and attempt < max_retries - 1:
+                wait = 2**attempt
+                print(
+                    f"  Bugzilla {e.code} on retry {attempt + 1}/{max_retries}, "
+                    f"sleeping {wait}s...",
+                    file=sys.stderr,
+                )
+                time.sleep(wait)
+                continue
+            last_err = f"Bugzilla {e.code} on {url} — body: {e.read()[:500].decode(errors='replace')}"
+            break
+        except urllib.error.URLError as e:
+            if attempt < max_retries - 1:
+                wait = 2**attempt
+                print(
+                    f"  Network error on retry {attempt + 1}/{max_retries} ({e.reason}), "
+                    f"sleeping {wait}s...",
+                    file=sys.stderr,
+                )
+                time.sleep(wait)
+                continue
+            last_err = f"Network error contacting Bugzilla ({e.reason}) after {max_retries} retries."
+            break
+    sys.exit(last_err)
 
 
 def fetch_severity_page(
@@ -158,33 +186,64 @@ def main() -> int:
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
 
+    # Phase 1: bug list. Resume from existing output if present — re-running the
+    # script after a partial enrichment crash should not re-collect titles.
     all_bugs: list[dict] = []
-    for normalized, raw_severities in RAW_SEVERITIES_BY_CLASS.items():
-        # Split the per-class target evenly across the source severities that map
-        # to this normalized class (so we don't over-represent e.g. 'critical' just
-        # because there are more raw bugs at that severity).
-        per_source = max(1, args.per_class // len(raw_severities))
-        for raw_sev in raw_severities:
-            print(f"\n=== {normalized} ← {raw_sev} (target {per_source}) ===", file=sys.stderr)
-            bugs = collect_for_severity(raw_sev, per_source, args.since)
-            for bug in bugs:
-                bug["normalized_severity"] = normalized
-            all_bugs.extend(bugs)
+    if args.output.exists():
+        with args.output.open(encoding="utf-8") as f:
+            all_bugs = [json.loads(line) for line in f if line.strip()]
+        print(
+            f"Resuming from existing {args.output} ({len(all_bugs)} bugs)",
+            file=sys.stderr,
+        )
+    else:
+        for normalized, raw_severities in RAW_SEVERITIES_BY_CLASS.items():
+            # Split the per-class target evenly across the source severities that
+            # map to this normalized class (so we don't over-represent e.g.
+            # 'critical' just because there are more raw bugs at that severity).
+            per_source = max(1, args.per_class // len(raw_severities))
+            for raw_sev in raw_severities:
+                print(
+                    f"\n=== {normalized} ← {raw_sev} (target {per_source}) ===",
+                    file=sys.stderr,
+                )
+                bugs = collect_for_severity(raw_sev, per_source, args.since)
+                for bug in bugs:
+                    bug["normalized_severity"] = normalized
+                all_bugs.extend(bugs)
+
+        # Persist list-phase results BEFORE comment enrichment. If the comment
+        # phase later crashes (502s, network blip), the titles are safe on disk
+        # and the script can resume from them on a re-run.
+        _write_bugs(args.output, all_bugs)
+        print(f"\nList phase complete — wrote {len(all_bugs)} bugs to {args.output}", file=sys.stderr)
 
     if args.with_description:
-        print(f"\nFetching first comments for {len(all_bugs)} bugs...", file=sys.stderr)
-        for i, bug in enumerate(all_bugs, 1):
+        pending = [b for b in all_bugs if "description" not in b]
+        print(
+            f"\nFetching first comments for {len(pending)} bugs "
+            f"({len(all_bugs) - len(pending)} already enriched)...",
+            file=sys.stderr,
+        )
+        for i, bug in enumerate(pending, 1):
             bug["description"] = fetch_first_comment(bug["id"])
             time.sleep(REQUEST_SLEEP_SEC)
+            # Persist every 50 enrichments so a crash loses at most ~50 calls
+            # worth of work.
             if i % 50 == 0:
-                print(f"  comments: {i} / {len(all_bugs)}", file=sys.stderr)
+                _write_bugs(args.output, all_bugs)
+                print(f"  comments: {i} / {len(pending)} (checkpoint saved)", file=sys.stderr)
+        _write_bugs(args.output, all_bugs)
 
-    with args.output.open("w", encoding="utf-8") as f:
-        for bug in all_bugs:
-            f.write(json.dumps(bug, ensure_ascii=False) + "\n")
-
-    print(f"\nWrote {len(all_bugs)} bugs to {args.output}", file=sys.stderr)
+    print(f"\nDone. {len(all_bugs)} bugs in {args.output}", file=sys.stderr)
     return 0
+
+
+def _write_bugs(path: Path, bugs: list[dict]) -> None:
+    """Atomic-ish JSONL write — full overwrite, but via the same file handle."""
+    with path.open("w", encoding="utf-8") as f:
+        for bug in bugs:
+            f.write(json.dumps(bug, ensure_ascii=False) + "\n")
 
 
 if __name__ == "__main__":
