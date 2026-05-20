@@ -57,9 +57,12 @@ fi
 # shellcheck source=/dev/null
 . .venv/bin/activate
 pip install -q --upgrade pip
-# Ollama is the only inference backend the pod needs. tqdm + the SDK deps
-# from requirements.txt are heavy and unnecessary here.
-pip install -q ollama
+# harness/backends.py imports all three SDKs at module level so the runner
+# refuses to start without them, even though the pod will only ever call
+# the ollama backend. Install all three (~30 MB combined). The
+# scientific stack from requirements.txt (pandas / sklearn / matplotlib)
+# is genuinely unneeded — scoring runs locally on the downloaded tarball.
+pip install -q ollama anthropic openai
 
 # ---------------------------------------------------------------------------
 # 4. Pull the 5-model lineup (in parallel; ~25 GB total)
