@@ -6,13 +6,14 @@ Companion code + dataset for the article "Which Local LLM Best Classifies Bug Se
 
 ## Methodology
 
-1. **Dataset.** ~1000 bugs sampled from Mozilla Bugzilla (2020+), balanced across four normalized severity classes: `low`, `medium`, `high`, `critical`. Mozilla's six raw severity values (`trivial`, `minor`, `normal`, `major`, `critical`, `blocker`) are mapped:
+1. **Dataset.** Bugs sampled from Mozilla Bugzilla (created 2020+, `resolution: FIXED`), split across four normalized severity classes: `low`, `medium`, `high`, `critical`. Mozilla's six raw severity values map as:
    - `blocker` / `critical` → **critical**
    - `major` → **high**
    - `normal` → **medium**
    - `minor` / `trivial` → **low**
    - `enhancement` → excluded (not a bug)
-   - Only bugs with `resolution: FIXED` to filter out spam / mis-triage.
+
+   The 4-class eval set is **intentionally imbalanced** to reflect Mozilla's real label distribution. Around 2020 Mozilla migrated from textual severity labels to an S1-S4 priority system, and the `major` and `trivial` labels are no longer routinely set — we collect what's available and cap each class at 250 bugs, which yields roughly: `critical` 250 / `medium` 250 / `low` ≈ 167 / `high` ≈ 36. Per-class precision/recall/F1 are reported alongside weighted F1 so the small-N classes are visible rather than hidden by averaging.
 2. **Models.** Five locally-runnable 7–12B candidates via [Ollama](https://ollama.com/) + three hosted API baselines across two providers:
    - **API**: `gpt-4o` (OpenAI), `claude-sonnet-4-6` (Anthropic, premium), `claude-haiku-4-5` (Anthropic, low-cost). Three API points let us plot the cost / accuracy curve honestly instead of pinning a single premium number.
    - **Local**: locked after `ollama list` verification — likely `llama3.1:8b` (the current BugSpotter default), `qwen2.5:7b` or `qwen3:8b`, `gemma3` (closest available size), `mistral` or `mistral-nemo`, `deepseek-r1:8b` (distilled).

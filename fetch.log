@@ -48,3 +48,20 @@ Traceback (most recent call last):
   File "C:\Users\balex\AppData\Local\Programs\Python\Python312\Lib\json\decoder.py", line 356, in raw_decode
     raise JSONDecodeError("Expecting value", s, err.value) from None
 json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+Resuming from existing C:\apex\BugSpotter\bugspotter-severity-benchmark\dataset\raw.jsonl (861 bugs)
+
+Fetching first comments for 611 bugs (250 already enriched)...
+  comments: 50 / 611 (checkpoint saved)
+  comments: 100 / 611 (checkpoint saved)
+  comments: 150 / 611 (checkpoint saved)
+  comments: 200 / 611 (checkpoint saved)
+  comments: 250 / 611 (checkpoint saved)
+  comments: 300 / 611 (checkpoint saved)
+  comments: 350 / 611 (checkpoint saved)
+  comments: 400 / 611 (checkpoint saved)
+  comments: 450 / 611 (checkpoint saved)
+  comments: 500 / 611 (checkpoint saved)
+  comments: 550 / 611 (checkpoint saved)
+  comments: 600 / 611 (checkpoint saved)
+
+Done. 861 bugs in C:\apex\BugSpotter\bugspotter-severity-benchmark\dataset\raw.jsonl
