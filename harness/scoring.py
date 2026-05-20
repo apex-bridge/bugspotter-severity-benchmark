@@ -116,29 +116,34 @@ def cost_projection(
     if model not in PRICING_USD_PER_1M:
         return None
     price = PRICING_USD_PER_1M[model]
-    total_input = sum(r["usage"].get("input_tokens", 0) for r in rows)
-    total_output = sum(r["usage"].get("output_tokens", 0) for r in rows)
-    total_cache_read = sum(
-        r["usage"].get("cache_read_input_tokens", 0) for r in rows
-    )
     n = len(rows)
     if n == 0:
         return None
-    avg_input = total_input / n
-    avg_output = total_output / n
-    avg_cache_read = total_cache_read / n
+    # Anthropic's usage accounting is: `input_tokens` is the uncached portion
+    # (full-price), `cache_creation_input_tokens` is what was written at
+    # 1.25x, `cache_read_input_tokens` is what was served from cache at 0.1x.
+    # They are disjoint — DO NOT subtract cache_read from input_tokens.
+    avg_input  = sum(r["usage"].get("input_tokens", 0) for r in rows) / n
+    avg_output = sum(r["usage"].get("output_tokens", 0) for r in rows) / n
+    avg_write  = sum(r["usage"].get("cache_creation_input_tokens", 0) for r in rows) / n
+    avg_read   = sum(r["usage"].get("cache_read_input_tokens", 0) for r in rows) / n
+    write_rate = price.get("cache_write", price["input"] * 1.25)
+    read_rate  = price.get("cache_read",  price["input"] * 0.10)
     cost_per_call = (
-        (avg_input - avg_cache_read) * price["input"] / 1_000_000
-        + avg_cache_read * price.get("cache_read", price["input"]) / 1_000_000
+        avg_input  * price["input"]  / 1_000_000
+        + avg_write * write_rate     / 1_000_000
+        + avg_read  * read_rate      / 1_000_000
         + avg_output * price["output"] / 1_000_000
     )
+    total_input_seen = avg_input + avg_write + avg_read
     return {
         "per_call_usd": cost_per_call,
         f"per_{projected_calls}_calls_usd": cost_per_call * projected_calls,
         "avg_input_tokens": avg_input,
         "avg_output_tokens": avg_output,
-        "avg_cache_read_tokens": avg_cache_read,
-        "cache_hit_share": avg_cache_read / avg_input if avg_input else 0.0,
+        "avg_cache_write_tokens": avg_write,
+        "avg_cache_read_tokens": avg_read,
+        "cache_hit_share": avg_read / total_input_seen if total_input_seen else 0.0,
     }
 
 

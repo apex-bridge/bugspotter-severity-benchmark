@@ -1,0 +1,2 @@
+{"bug_id": 1624233, "model": "qwen3:32b", "provider": "ollama", "mode": "zero-shot", "hardware": "cpu-windows-smoke", "gold": "low", "predicted": null, "raw_output": "", "latency_ms": 188609.2045000405, "usage": {"input_tokens": 250, "output_tokens": 10}}
+{"bug_id": 1627831, "model": "qwen3:32b", "provider": "ollama", "mode": "zero-shot", "hardware": "cpu-windows-smoke", "gold": "low", "predicted": null, "raw_output": "", "latency_ms": 34980.28419999173, "usage": {"input_tokens": 102, "output_tokens": 10}}
