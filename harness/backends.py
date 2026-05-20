@@ -148,12 +148,26 @@ def classify_openai(
 def classify_ollama(
     client: ollama.Client, model: str, messages: list[dict]
 ) -> tuple[str, float, dict[str, Any]]:
+    """Local inference. Reasoning-model budget handling:
+
+    - qwen3 supports a `think: false` toggle that suppresses the
+      `<think>...</think>` preamble entirely — preferred for label tasks
+      where we don't want thinking.
+    - deepseek-r1 is always reasoning, no toggle. Give it 500 num_predict
+      so the answer fits after the chain-of-thought.
+    - Everything else gets 50 tokens — enough for any label format.
+    """
     started = time.perf_counter()
-    response = client.chat(
-        model=model,
-        messages=messages,
-        options={"num_predict": MAX_OUTPUT_TOKENS},
-    )
+    chat_kwargs: dict[str, Any] = {"model": model, "messages": messages}
+    name = model.lower()
+    if name.startswith("qwen3"):
+        chat_kwargs["think"] = False
+        chat_kwargs["options"] = {"num_predict": 50}
+    elif name.startswith("deepseek-r1"):
+        chat_kwargs["options"] = {"num_predict": 500}
+    else:
+        chat_kwargs["options"] = {"num_predict": 50}
+    response = client.chat(**chat_kwargs)
     latency_ms = (time.perf_counter() - started) * 1000
     text = response["message"]["content"] or ""
     usage = {
