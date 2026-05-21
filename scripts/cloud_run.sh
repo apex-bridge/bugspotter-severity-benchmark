@@ -83,10 +83,14 @@ if [ "${SKIP_DEEPSEEK:-0}" = "1" ]; then
 fi
 
 echo ">>> Pulling models in parallel..."
+pull_pids=()
 for m in "${MODELS[@]}"; do
   ollama pull "$m" &
+  pull_pids+=($!)
 done
-wait
+# wait only for the pull jobs; bare `wait` would also block on `ollama serve &`
+# above, which is a daemon that never exits.
+wait "${pull_pids[@]}"
 echo ">>> All models pulled."
 ollama list
 
