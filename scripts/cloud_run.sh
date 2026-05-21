@@ -16,11 +16,12 @@
 set -euo pipefail
 
 # ---------------------------------------------------------------------------
-# 0. Sanity
+# 0. Sanity — install Ollama if missing (CPU-only Hetzner / DO / EC2 images
+# typically don't have it pre-baked the way RunPod's ollama/ollama image does).
 # ---------------------------------------------------------------------------
 if ! command -v ollama >/dev/null 2>&1; then
-  echo "ERROR: ollama binary not found. This script expects the ollama/ollama:latest container."
-  exit 1
+  echo ">>> Installing Ollama..."
+  curl -fsSL https://ollama.com/install.sh | sh
 fi
 # Start the Ollama server in the background if it isn't already running.
 if ! curl -sf http://localhost:11434/ >/dev/null 2>&1; then
@@ -74,6 +75,12 @@ MODELS=(
   "mistral-nemo:12b"
   "deepseek-r1:8b"
 )
+# Optional: skip the reasoning model on CPU runs — its 500-token output cap
+# makes a single classification take minutes on commodity x86.
+if [ "${SKIP_DEEPSEEK:-0}" = "1" ]; then
+  MODELS=(${MODELS[@]/deepseek-r1:8b})
+  echo ">>> SKIP_DEEPSEEK=1 — dropping deepseek-r1:8b from this run"
+fi
 
 echo ">>> Pulling models in parallel..."
 for m in "${MODELS[@]}"; do
@@ -87,7 +94,7 @@ ollama list
 # 5. Run all sweeps. Each sweep is resumable, so a crash drops you back
 #    here and the next bash invocation skips already-classified bugs.
 # ---------------------------------------------------------------------------
-HW_TAG="cloud-a100"
+HW_TAG="${HW_TAG:-cloud-a100}"
 for m in "${MODELS[@]}"; do
   for mode in zero-shot few-shot; do
     echo ""
